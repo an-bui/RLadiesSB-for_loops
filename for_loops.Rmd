@@ -1,0 +1,193 @@
+---
+title: "for() loops"
+author: "your name here"
+date: "2/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# A little refresher on subsetting in R
+
+Subsetting is a big part of writing `for()` loops. If we want to subset something in R, we can use square brackets. What's in the brackets indicates the **position** of the element we want to subset. Let's say we have a vector of cereals:
+```{r}
+cereal_names <- c("Bran Flakes", "Count Chocula", "Fruit Loops", "Rice Krispies", "Trix")
+```
+
+and we want to take out the 3rd cereal in the vector. We can do that using the square brackets like so:
+```{r}
+cereal_names[3]
+```
+
+Alternatively, you could do something like this:
+```{r}
+cereal_names[cereal_names == "Fruit Loops"]
+```
+
+Let's move on to those loops!
+
+# What are `for()` loops?
+
+`for()` loops in R are really powerful tools when you want to do the same thing (i.e. use a set of functions) multiple times on different objects.  
+
+There are 3 basic parts for a successful `for()` loop:  
+
+1. a set of data to iterate over (usually a vector)  
+2. an empty vector to hold the output of the loop  
+3. the `for()` loop itself  
+
+We can put that into practice with a simple example. Let's say that for a vector of numbers, we want to add 3 to each number and then add it to the previous number.  
+
+First, we'll need to get our data set to iterate over. We'll just use the cereal names again.
+```{r}
+cereal_names
+```
+
+Then, we'll create an empty vector to hold the output of the loop. There are a few ways to do this, but the simplest way is to just create an empty vector using `c()`.
+```{r}
+loop_output <- c()
+```
+
+Lastly, we have our loop. What you're telling R to do is:  
+- for every element `i` from the first to the last in the vector,  
+- perform some operation,  
+- and put that into the holding vector.  
+
+In this case, we're saying:  
+- for every element `i` from the first to the last in the vector `cereal_names`,  
+- make an expression that goes like:  
+              "[This cereal] is great, but I also like [the previous cereal in the vector]!"  
+- and put that into the holding vector.
+
+```{r}
+# for each element i from the first to the last in cereal_names
+for(i in 1:length(cereal_names)) {
+  
+  # create a temporary object called `expression` 
+  # use the function `paste()` to create a sentence that goes:
+  # [This cereal] is great, and so is [the previous cereal in the vector]!
+  expression <- paste(cereal_names[i], " is great, but I also like ", cereal_names[i-1], "!", sep = "")
+  
+  # store the value of `expression` in the holding vector
+  loop_output[i] <- expression
+  
+}
+```
+
+And now we can look at our output!
+```{r}
+loop_output
+```
+
+# When would you not use a `for()` loop?
+
+Sometimes, you just don't need a `for()` loop. If what you're doing can be **vectorized** - as in, one element's outputs don't depend on any others - you don't actually need a loop.  
+
+If we just wanted to say, "[This cereal], yum!" without any reference to the other elements in the vector, we don't actually need a `for()` loop.
+
+```{r}
+paste(cereal_names, ", yum!", sep = "")
+```
+
+# What about all those `apply` functions?
+
+**WE DON'T TALK ABOUT THOSE.**   
+
+Jk jk. I (An) am not going to cover them because I don't really know how they work/have never gotten them to work (insert monkey covering face emoji here). Maybe another workshop??
+
+# A bit more complex
+
+I use `for()` loops a lot when I am doing preliminary data visualization. I work with datasets that have 100+ species from a bunch of different sites. For this reason, the tricks for data visualization (e.g. using `facet_wrap()` in `ggplot` to separate plots by some variable) don't work for me because there are too many species, and too many sites.  
+
+Sometimes I want to be able to look at the plots for specific species from specific sites. What I could do is copy paste the code a bunch of times to filter the observations and plot them... or, I could write a `for()` loop to automate the process.  
+
+As an example, let's say we have data on cereal prices for 5 different cereals at 3 different stores, and we want to visualize the change in price over time for each cereal at each store. Also, we can't use `facet_wrap()` in `ggplot`.  
+
+```{r message = FALSE}
+source("data_creation.R")
+```
+
+We could do this for every cereal at every store:
+```{r}
+# take the cereal dataset
+cereal %>% 
+  
+  # filter for a store and cereal of interest
+  filter(store == "cereal_outlet" & cereal == "fruit_loops") %>% 
+  
+  # pipe into ggplot to make a timeseries plot of price
+  ggplot(., aes(x = year, y = price_usd)) +
+  geom_point(size = 2) +
+  geom_line(size = 1) +
+  labs(x = "Year", 
+       y = "Price (USD)",
+       title = "Price of Fruit Loops at Cereal Outlet") +
+  theme_bw()
+```
+
+Or... we could write a `for()` loop. Here's the basic structure of what'll be a **nested** `for()` loop (one loop inside the other):  
+    1. Choose a store (Cereal Outlet, Ce-Mart, or Cer-Ya)  
+    2. Choose a cereal (Bran Flakes, Count Chocula, Fruit Loops, Rice Krispies, Trix)  
+    3. Make a timeseries plot of price in USD  
+    4. Save that plot as an object   
+
+To set up, we're going to create two vectors: one of the 3 store names, and the other of the 5 cereal names.
+```{r}
+# vector of store anes
+store <- cereal %>% 
+  pull(store) %>% 
+  unique()
+
+# vector of cereal names
+cereal_vector <- cereal %>% 
+  pull(cereal) %>% 
+  unique()
+```
+
+Then, we can write our `for()` loop.
+```{r}
+for(j in 1:length(store)) {
+  
+  # 1. choose a store
+  this_store <- store[j]
+  
+  for(i in 1:length(cereal_vector)) {
+    
+    # 2. choose a cereal
+    this_cereal <- cereal_vector[i]
+    
+    # filter the cereal dataset for the observations matching this_store and this_cereal
+    this_cereal_data <- cereal %>% filter(store == this_store & cereal == this_cereal)
+    
+    # make a timeseries plot of price in USD
+    plot <- ggplot(this_cereal_data, aes(x = year, y = price_usd)) +
+      geom_point(size = 2) +
+      geom_line(size = 1) +
+      labs(x = "Year", 
+           y = "Price (USD)",
+           # with a dynamic name!
+           title = paste("Price of ", this_cereal_data$cereal_title, " at ",
+                         this_cereal_data$store_title, sep = "")) +
+      theme_bw()
+    
+    # make a separate object for the plot with a dynamic name
+    # the first argument is the object name (e.g. plot_cer_ya_trix)
+    # the second argument is the object (the temporary `plot`)
+    assign(paste("plot", this_store, this_cereal, sep = "_"), plot)
+    
+  }
+  
+}
+```
+
+Now, we can look at our plots.
+```{r}
+plot_ce_mart_count_chocula
+
+plot_cer_ya_trix
+
+plot_cereal_outlet_fruit_loops
+```
+
